@@ -1,0 +1,2071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemistry Compound Analyzer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #0d1117; color: #e6edf3;
+  min-height: 100vh; padding: 0 0 60px;
+}
+
+/* ── Header ── */
+header {
+  background: #161b22; border-bottom: 1px solid #30363d;
+  padding: 14px 32px; display: flex; align-items: center; gap: 20px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 18px; color: #58a6ff; white-space: nowrap; }
+#status-bar { font-size: 12px; color: #8b949e; margin-left: auto; }
+#status-bar span { margin-left: 8px; }
+.lib-ok  { color: #3fb950; }
+.lib-off { color: #f85149; }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; gap: 4px;
+  background: #21262d; border-radius: 10px; padding: 4px;
+}
+.tab-btn {
+  padding: 8px 18px; border: none; border-radius: 7px;
+  background: transparent; color: #8b949e;
+  font-size: 13px; cursor: pointer; transition: all .2s;
+  white-space: nowrap;
+}
+.tab-btn.active {
+  background: #161b22; color: #e6edf3;
+  box-shadow: 0 1px 4px rgba(0,0,0,.5);
+}
+.tab-btn:hover:not(.active) { color: #e6edf3; }
+
+/* ── Search ── */
+#search-section {
+  max-width: 800px; margin: 40px auto 0; padding: 0 20px;
+}
+#search-section h2 { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
+.search-row { display: flex; gap: 10px; position: relative; align-items: center; }
+#search-input {
+  flex: 1; background: #161b22; border: 2px solid #30363d;
+  border-radius: 10px; padding: 14px 18px;
+  color: #e6edf3; font-size: 16px; outline: none;
+  transition: border-color .2s;
+}
+#search-input:focus { border-color: #58a6ff; }
+#search-btn {
+  background: #238636; border: none; border-radius: 10px;
+  color: #fff; font-size: 15px; padding: 13px 24px;
+  cursor: pointer; white-space: nowrap; transition: background .2s;
+}
+#search-btn:hover { background: #2ea043; }
+#search-btn:disabled { background: #21262d; color: #8b949e; cursor: default; }
+#rxn-btn:disabled    { background: #21262d; color: #8b949e; cursor: default; }
+
+/* Autocomplete dropdown */
+#autocomplete-list {
+  position: absolute; top: calc(100% + 6px); left: 0;
+  width: 100%; background: #1c2128; border: 1px solid #30363d;
+  border-radius: 8px; z-index: 50; overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  display: none;
+}
+.ac-item {
+  padding: 10px 16px; cursor: pointer; font-size: 14px;
+  border-bottom: 1px solid #21262d; transition: background .1s;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.active { background: #30363d; color: #58a6ff; }
+
+/* ── Loading ── */
+#loading {
+  display: none; text-align: center; padding: 40px;
+  color: #8b949e; font-size: 14px;
+}
+.spinner {
+  display: inline-block; width: 28px; height: 28px;
+  border: 3px solid #30363d; border-top-color: #58a6ff;
+  border-radius: 50%; animation: spin .8s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Main results ── */
+#results-section { max-width: 1100px; margin: 32px auto 0; padding: 0 20px; display: none; }
+
+/* ── Data + Structure row ── */
+.top-row { display: grid; grid-template-columns: 1fr 340px; gap: 20px; margin-bottom: 20px; }
+@media (max-width: 760px) { .top-row { grid-template-columns: 1fr; } }
+
+.card {
+  background: #161b22; border: 1px solid #30363d;
+  border-radius: 12px; padding: 20px;
+}
+.card-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: #8b949e; margin-bottom: 14px; font-weight: 600;
+}
+
+/* Verified data table */
+.data-group { margin-bottom: 14px; }
+.data-source {
+  font-size: 11px; color: #388bfd; font-weight: 600;
+  margin-bottom: 6px; text-transform: uppercase;
+}
+.data-row {
+  display: flex; justify-content: space-between;
+  font-size: 13px; padding: 3px 0;
+  border-bottom: 1px solid #21262d;
+}
+.data-row:last-child { border-bottom: none; }
+.data-key { color: #8b949e; }
+.data-val { color: #e6edf3; font-family: monospace; text-align: right; max-width: 60%; word-break: break-all; }
+
+/* Structure image */
+#structure-img { width: 100%; border-radius: 8px; background: white; display: block; }
+#no-structure { color: #8b949e; font-size: 13px; text-align: center; padding: 40px 0; }
+
+/* ── Buttons ── */
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  padding: 9px 20px; border-radius: 8px; border: none;
+  cursor: pointer; font-size: 14px; transition: all .2s;
+}
+.btn-primary   { background: #238636; color: #fff; }
+.btn-primary:hover { background: #2ea043; }
+.btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+.btn-secondary:hover { background: #30363d; }
+.btn-accent    { background: #1f6feb; color: #fff; }
+.btn-accent:hover { background: #388bfd; }
+
+/* ── AI Analysis ── */
+#analysis-section { margin-bottom: 20px; }
+#analysis-text, #crystal-analysis-text, #polymer-analysis-text {
+  font-size: 13px; line-height: 1.9;
+  background: #0d1117; border-radius: 8px; padding: 20px;
+  min-height: 100px; color: #e6edf3;
+}
+.cursor {
+  display: inline-block; width: 2px; height: 14px;
+  background: #58a6ff; margin-left: 1px;
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Reaction Predictor ── */
+#section-reaction { max-width: 900px; margin: 40px auto 0; padding: 0 20px; }
+
+.input-group { margin-bottom: 14px; }
+.input-group label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 6px; }
+.input-group input {
+  width: 100%; background: #0d1117; border: 1px solid #30363d;
+  border-radius: 8px; padding: 11px 14px; color: #e6edf3; font-size: 14px; outline: none;
+  transition: border-color .2s;
+}
+.input-group input:focus { border-color: #58a6ff; }
+
+#rxn-output-section { margin-top: 20px; display: none; }
+#rxn-text {
+  font-family: 'Courier New', monospace; font-size: 13px;
+  line-height: 1.9; white-space: pre-wrap;
+  background: #0d1117; border-radius: 8px; padding: 20px;
+  color: #e6edf3; min-height: 100px;
+}
+
+/* ── History ── */
+#section-history { max-width: 900px; margin: 40px auto 0; padding: 0 20px; }
+
+.hist-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #30363d; color: #8b949e; border-radius: 10px;
+  font-size: 11px; padding: 1px 6px; margin-left: 5px; min-width: 18px;
+}
+.tab-btn.active .hist-count { background: #1f6feb; color: #fff; }
+
+.mode-toggle { display: flex; gap: 2px; background: #21262d; border-radius: 6px; padding: 3px; }
+.mode-btn {
+  padding: 5px 14px; border: none; border-radius: 4px;
+  background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; transition: all .15s;
+}
+.mode-btn.active { background: #161b22; color: #e6edf3; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+
+.hist-item { background: #161b22; border: 1px solid #30363d; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.hist-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 16px; cursor: pointer; transition: background .15s;
+}
+.hist-header:hover { background: #1c2128; }
+.hist-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap;
+}
+.hist-badge.compound { background: #1a2d1f; color: #3fb950; border: 1px solid #238636; }
+.hist-badge.reaction  { background: #1a1f2e; color: #79c0ff; border: 1px solid #1f6feb; }
+.hist-badge.crystal   { background: #1e1a2d; color: #c8a2ff; border: 1px solid #8957e5; }
+.hist-badge.polymer   { background: #1a2820; color: #56d364; border: 1px solid #2ea043; }
+.hist-badge.mixture   { background: #2d1a1a; color: #ff9966; border: 1px solid #c9510c; }
+.hist-query { font-size: 14px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-time  { font-size: 11px; color: #8b949e; white-space: nowrap; }
+.hist-del   {
+  background: none; border: none; color: #8b949e; cursor: pointer;
+  font-size: 15px; padding: 2px 6px; border-radius: 4px; line-height: 1; flex-shrink: 0;
+}
+.hist-del:hover { color: #f85149; }
+.hist-body { display: none; border-top: 1px solid #30363d; padding: 16px; background: #0d1117; }
+.hist-body.open { display: block; }
+.hist-analysis {
+  font-size: 12px; line-height: 1.7; color: #e6edf3;
+  max-height: 380px; overflow-y: auto;
+}
+.hist-empty { text-align: center; color: #8b949e; padding: 60px 0; font-size: 14px; }
+
+/* ── Image expand modal ── */
+#img-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.88); z-index: 200;
+  align-items: center; justify-content: center; cursor: zoom-out;
+}
+#img-modal.open { display: flex; }
+#img-modal img {
+  max-width: 90vw; max-height: 90vh; object-fit: contain;
+  background: white; border-radius: 10px;
+  box-shadow: 0 0 60px rgba(0,0,0,.6);
+}
+
+/* ── Isomer grid ── */
+#isomer-grid-section { margin-bottom: 20px; }
+.isomer-grid-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px; margin-top: 4px;
+}
+.isomer-card {
+  background: #0d1117; border: 2px solid #30363d;
+  border-radius: 10px; padding: 10px;
+  cursor: pointer; transition: border-color .18s, background .18s;
+  text-align: center;
+}
+.isomer-card:hover { border-color: #58a6ff; background: #1c2128; }
+.isomer-card.selected { border-color: #3fb950; background: #1a2d1f; }
+.isomer-card img { width: 100%; border-radius: 6px; background: white; display: block; }
+.isomer-no-img {
+  height: 100px; background: #21262d; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: #8b949e; font-size: 11px;
+}
+.isomer-name { font-size: 11px; color: #8b949e; margin-top: 8px; word-break: break-word; line-height: 1.4; }
+
+/* ── Reactant count picker ── */
+.rxn-count-btns { display: flex; gap: 2px; background: #21262d; border-radius: 6px; padding: 3px; }
+.rxn-count-btn { padding: 4px 14px; border: none; border-radius: 4px; background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; transition: all .15s; }
+.rxn-count-btn.active { background: #161b22; color: #e6edf3; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.rxn-count-btn:hover:not(.active):not(:disabled) { color: #e6edf3; }
+.rxn-count-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Reaction Predictor two-box row ── */
+.rxn-input-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.rxn-r-col { flex: 1; display: flex; flex-direction: column; }
+.rxn-r-col .input-group { margin-bottom: 0; }
+.rxn-sym { font-size: 22px; color: #8b949e; padding-top: 26px; flex-shrink: 0; font-weight: 600; line-height: 1; }
+.rxn-arrow-lbl { font-size: 18px; color: #58a6ff; padding-top: 26px; flex-shrink: 0; font-weight: 700; white-space: nowrap; line-height: 1; }
+.rxn-expand { border: 1px solid #30363d; border-top: 2px solid #388bfd; border-radius: 0 0 8px 8px; background: #0d1117; padding: 14px; }
+
+/* ── Isomer hover-list picker ── */
+.rxn-iso-wrap { display: flex; gap: 16px; align-items: stretch; }
+.rxn-iso-list { list-style: none; min-width: 180px; max-width: 280px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; align-self: flex-start; }
+.rxn-iso-item { padding: 9px 14px; font-size: 13px; color: #8b949e; cursor: pointer; border-bottom: 1px solid #21262d; transition: background .12s, color .12s; }
+.rxn-iso-item:last-child { border-bottom: none; }
+.rxn-iso-item:hover { background: #1c2128; color: #e6edf3; }
+.rxn-iso-item.selected { background: #1a2d1f; color: #3fb950; border-left: 3px solid #3fb950; }
+.rxn-preview-box { display: flex; align-items: center; justify-content: center; width: 220px; height: 165px; background: #1c2128; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.rxn-preview-box img { width: 100%; height: 100%; object-fit: contain; background: white; display: block; }
+.rxn-preview-ph { color: #8b949e; font-size: 12px; text-align: center; padding: 20px; line-height: 1.6; }
+
+/* ── Misc ── */
+.alert { padding:12px 16px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+.alert-warn { background:#271e1a; border:1px solid #f0883e; color:#f0883e; }
+.alert-info { background:#1a2233; border:1px solid #388bfd; color:#79c0ff; }
+</style>
+<!-- marked.js for Markdown rendering in AI analysis -->
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<style>
+/* Rendered analysis content */
+.analysis-rendered { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13.5px; line-height: 1.85; color: #e6edf3; }
+.analysis-rendered h1, .analysis-rendered h2, .analysis-rendered h3 { color: #58a6ff; margin: 14px 0 6px; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.analysis-rendered h1 { font-size: 15px; }
+.analysis-rendered p { margin: 0 0 10px; }
+.analysis-rendered ul, .analysis-rendered ol { margin: 4px 0 10px 20px; padding: 0; }
+.analysis-rendered li { margin-bottom: 4px; }
+.analysis-rendered strong { color: #f0f6fc; }
+.analysis-rendered em { color: #d2a8ff; }
+.analysis-rendered code { font-family: 'Courier New', monospace; background: #161b22; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.analysis-rendered pre { background: #161b22; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 8px 0; }
+.analysis-rendered pre code { background: none; padding: 0; }
+.crystal-chip { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:500;letter-spacing:.02em; }
+.crystal-chip.system  { background:#0d2137;color:#79c0ff;border:1px solid #1f4e79; }
+.crystal-chip.bravais { background:#0d1e0d;color:#56d364;border:1px solid #2ea043; }
+.crystal-chip.sg      { background:#1c1226;color:#d2a8ff;border:1px solid #6e40c9; }
+.display-eq { background: #0d1117; border-left: 3px solid #58a6ff; border-radius: 4px; padding: 10px 16px; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 13px; color: #a5d6ff; white-space: nowrap; overflow-x: auto; }
+.inline-eq { font-family: 'Courier New', monospace; font-size: 12.5px; color: #a5d6ff; background: #0d1117; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚗️ Chemistry Analyzer</h1>
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-analyzer" onclick="switchTab('analyzer')">Compound Analyzer</button>
+    <button class="tab-btn"        id="tab-reaction" onclick="switchTab('reaction')">Reaction Predictor</button>
+    <button class="tab-btn"        id="tab-history"  onclick="switchTab('history')">History <span class="hist-count" id="history-count" style="display:none">0</span></button>
+  </div>
+  <div id="status-bar">Loading...</div>
+</header>
+
+<!-- ══ COMPOUND ANALYZER ══════════════════════════════════════════════════════ -->
+<div id="section-analyzer">
+
+  <section id="search-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0;" id="search-label">Enter a chemical formula or compound name</h2>
+      <div class="rxn-count-btns" style="flex-shrink:0;">
+        <button class="rxn-count-btn active" id="mode-compound" onclick="setSearchMode('compound')">⚗ Compound</button>
+        <button class="rxn-count-btn"        id="mode-crystal"  onclick="setSearchMode('crystal')">💎 Crystal</button>
+        <button class="rxn-count-btn"        id="mode-polymer"  onclick="setSearchMode('polymer')">🧬 Polymer</button>
+      </div>
+    </div>
+    <div class="search-row">
+      <input id="search-input" type="text" autocomplete="off"
+             placeholder="e.g.  H2O,  Fe2O3,  aspirin,  C6H12O6"
+             spellcheck="false">
+      <button id="search-btn" onclick="startAnalysis()">Analyze →</button>
+      <div id="autocomplete-list"></div>
+    </div>
+  </section>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-msg">Gathering data...</div>
+  </div>
+
+  <!-- Crystal mode result -->
+  <div id="crystal-section" style="display:none;max-width:800px;margin:0 auto 20px;padding:0 20px;">
+    <div class="card">
+      <div class="card-title">Crystal Structure — <span id="crystal-label" style="color:#58a6ff;text-transform:none;font-size:13px;"></span></div>
+      <div id="crystal-not-crystal" style="display:none;padding:14px 0;color:#f85149;font-size:13px;">
+        ✗ <span id="crystal-not-msg"></span> does not appear to have a crystal structure. Try searching in Compound mode.
+      </div>
+      <div id="crystal-body" style="display:none;">
+        <div id="crystal-no-img" style="display:none;font-size:12px;color:#8b949e;margin-bottom:10px;">No crystal structure image found — see AI analysis below.</div>
+        <div id="crystal-structure-note" style="display:none;font-size:12px;color:#e3b341;background:#272115;border:1px solid #6e4f1a;border-radius:6px;padding:8px 12px;margin-bottom:10px;"></div>
+        <img id="crystal-img" src="" alt="" style="max-width:100%;max-height:340px;object-fit:contain;border-radius:8px;background:#1c2128;display:block;">
+        <div id="crystal-sym-row" style="display:none;margin-top:12px;flex-wrap:wrap;gap:8px;align-items:center;"></div>
+        <div id="lattice-diagram-wrap" style="display:none;margin-top:14px;">
+          <div style="font-size:11px;color:#8b949e;margin-bottom:6px;letter-spacing:.04em;">UNIT CELL DIAGRAM</div>
+          <img id="lattice-diagram-img" src="" alt="unit cell diagram" style="width:300px;height:300px;border-radius:8px;background:#ffffff;border:1px solid #d0d7de;object-fit:contain;">
+        </div>
+      </div>
+    </div>
+    <div id="crystal-analysis-section" class="card" style="display:none;margin-top:16px;">
+      <div class="card-title">AI Analysis — <span id="crystal-analysis-label" style="color:#58a6ff;text-transform:none;font-size:13px;"></span></div>
+      <div id="crystal-analysis-text"></div>
+    </div>
+  </div>
+
+  <!-- ── Polymer section ───────────────────────────────────────────────── -->
+  <div id="polymer-main-section" style="display:none;max-width:800px;margin:0 auto 20px;padding:0 20px;">
+    <div class="card">
+      <div class="card-title">Polymer Structure — <span id="polymer-main-label" style="color:#58a6ff;text-transform:none;font-size:13px;"></span></div>
+      <div id="polymer-not-found" style="display:none;padding:16px 0;color:#8b949e;font-size:13px;">
+        ✗ <span id="polymer-not-msg"></span> — not found in polymer database.
+      </div>
+      <div id="polymer-main-body" style="display:none;display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="flex-shrink:0;">
+          <img id="polymer-main-img" src="" alt="" style="max-width:300px;max-height:230px;object-fit:contain;border-radius:8px;background:white;">
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <div style="font-size:11px;color:#8b949e;margin-bottom:4px;">Repeat unit</div>
+          <div id="polymer-main-notation" style="font-size:20px;font-family:'Courier New',monospace;color:#e6edf3;margin-bottom:12px;"></div>
+          <div style="font-size:11px;color:#8b949e;margin-bottom:4px;">Formula per unit</div>
+          <div id="polymer-main-formula" style="font-size:14px;color:#58a6ff;margin-bottom:12px;"></div>
+          <div style="font-size:11px;color:#6e7681;line-height:1.6;"><em>n</em> = degree of polymerization</div>
+        </div>
+      </div>
+    </div>
+    <div id="polymer-analysis-section" class="card" style="display:none;margin-top:16px;">
+      <div class="card-title">AI Analysis — <span id="polymer-analysis-label" style="color:#58a6ff;text-transform:none;font-size:13px;"></span></div>
+      <div id="polymer-analysis-text"></div>
+    </div>
+  </div>
+
+  <section id="results-section">
+
+    <div class="top-row">
+      <div class="card">
+        <div class="card-title">Verified Data — from chemistry libraries</div>
+        <div id="data-content"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">2D Structure — all atoms shown</div>
+        <div id="structure-panel">
+          <div id="no-structure">No structure available</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="polymer-section" class="card" style="display:none;margin-bottom:20px;">
+      <div class="card-title">Polymer Repeating Unit</div>
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="flex-shrink:0;">
+          <img id="polymer-unit-img" src="" alt="" style="max-width:320px;max-height:240px;object-fit:contain;border-radius:8px;background:white;">
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:12px;color:#8b949e;margin-bottom:6px;">Repeat unit notation</div>
+          <div id="polymer-notation" style="font-size:18px;font-family:'Courier New',monospace;color:#e6edf3;margin-bottom:14px;"></div>
+          <div style="font-size:12px;color:#8b949e;margin-bottom:4px;">Repeat unit formula</div>
+          <div id="polymer-formula" style="font-size:14px;color:#58a6ff;margin-bottom:14px;"></div>
+          <div style="font-size:11px;color:#6e7681;line-height:1.5;">
+            This compound is a polymer. The structure shown is one repeating unit of the chain.<br>
+            <em>n</em> = degree of polymerization (chain length).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="isomer-grid-section" class="card" style="display:none;margin-bottom:20px;">
+      <div class="card-title">Select a Compound — click one to analyze</div>
+
+      <!-- loading spinner -->
+      <div id="isomer-grid-loading" style="display:none;text-align:center;padding:40px 20px;color:#8b949e;">
+        <div class="spinner"></div>
+        <div style="margin-top:8px;font-size:13px;">Loading isomers from PubChem…</div>
+      </div>
+
+      <!-- cards -->
+      <div id="isomer-grid" class="isomer-grid-wrap"></div>
+
+      <!-- manual fallback -->
+      <div id="isomer-manual" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid #30363d;">
+        <p style="font-size:12px;color:#8b949e;margin-bottom:10px;">
+          Not in the list? Enter the compound name or SMILES:
+        </p>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div style="flex:1;">
+            <div style="display:flex;gap:10px;">
+              <input id="structural-input" type="text" style="flex:1;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 14px;color:#e6edf3;font-size:14px;outline:none;"
+                     placeholder="e.g. cyclohexane  or  SMILES string">
+              <button class="btn btn-accent" id="structural-btn" onclick="analyzeStructural()">Analyze</button>
+            </div>
+            <div id="structural-msg" style="display:none;margin-top:8px;font-size:12px;"></div>
+          </div>
+          <div id="structural-preview" style="display:none;flex-shrink:0;">
+            <img id="structural-preview-img" src="" alt="" style="width:160px;height:120px;object-fit:contain;background:white;border-radius:6px;display:block;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mixture info card (shown instead of molecular structure for mixtures) -->
+    <div id="mixture-section" class="card" style="display:none;margin-bottom:16px;">
+      <div class="card-title">🧪 Mixture — <span id="mixture-title" style="color:#58a6ff;text-transform:none;font-size:13px;"></span></div>
+      <div id="mixture-type" style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;"></div>
+      <div id="mixture-desc" style="font-size:13px;color:#c9d1d9;margin-bottom:14px;line-height:1.6;"></div>
+      <div style="font-size:11px;color:#388bfd;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Components</div>
+      <table id="mixture-table" style="width:100%;border-collapse:collapse;font-size:13px;"></table>
+      <div id="mixture-ratio" style="margin-top:12px;font-size:12px;color:#8b949e;"></div>
+    </div>
+
+    <div id="analysis-section" class="card" style="display:none;">
+      <div class="card-title">AI Analysis — <span id="analysis-label" style="color:#58a6ff;text-transform:none;font-size:13px;"></span></div>
+      <div id="analysis-text"></div>
+    </div>
+
+    <div id="rxn-suggest-banner" style="display:none;max-width:800px;margin:0 auto 20px;padding:0 20px;">
+      <div style="background:#161b22;border:1px solid #30363d;border-left:3px solid #58a6ff;border-radius:8px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:13px;color:#8b949e;">Want to predict a reaction involving <strong id="rxn-suggest-name" style="color:#e6edf3;"></strong>?</span>
+        <button class="btn btn-primary" style="font-size:12px;padding:7px 18px;white-space:nowrap;" onclick="goToReaction()">Predict a Reaction →</button>
+      </div>
+    </div>
+
+  </section>
+</div><!-- end #section-analyzer -->
+
+<!-- ══ REACTION PREDICTOR ═════════════════════════════════════════════════════ -->
+<div id="section-reaction" style="display:none;">
+  <section style="max-width:900px;margin:40px auto 0;padding:0 20px;">
+
+    <div class="card">
+      <div class="card-title">Reaction Predictor</div>
+      <p style="font-size:14px;color:#8b949e;margin-bottom:20px;line-height:1.6;">
+        Enter the reactants and optional conditions. The AI will predict the major product(s)
+        and explain the reaction mechanism step by step.
+      </p>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span style="font-size:12px;color:#8b949e;">Number of reactants:</span>
+        <div class="rxn-count-btns" id="rxn-count-btns">
+          <button class="rxn-count-btn" onclick="setReactantCount(1)">1</button>
+          <button class="rxn-count-btn active" onclick="setReactantCount(2)">2</button>
+          <button class="rxn-count-btn" onclick="setReactantCount(3)">3</button>
+        </div>
+      </div>
+      <div class="rxn-input-row">
+        <div class="rxn-r-col">
+          <div class="input-group">
+            <label>Reactant 1</label>
+            <input id="rxn-r1" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. C2H6O, ethanol, Na">
+          </div>
+          <div id="rxn-expand-0" class="rxn-expand" style="display:none;"></div>
+        </div>
+        <div class="rxn-sym" id="rxn-plus-1">+</div>
+        <div class="rxn-r-col" id="rxn-col-1">
+          <div class="input-group">
+            <label>Reactant 2</label>
+            <input id="rxn-r2" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. HBr, H2SO4, Cl2">
+          </div>
+          <div id="rxn-expand-1" class="rxn-expand" style="display:none;"></div>
+        </div>
+        <div class="rxn-sym" id="rxn-plus-2" style="display:none;">+</div>
+        <div class="rxn-r-col" id="rxn-col-2" style="display:none;">
+          <div class="input-group">
+            <label>Reactant 3</label>
+            <input id="rxn-r3" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. catalyst, solvent">
+          </div>
+          <div id="rxn-expand-2" class="rxn-expand" style="display:none;"></div>
+        </div>
+        <div class="rxn-arrow-lbl">→ ?</div>
+      </div>
+      <div class="input-group" style="margin-top:14px;">
+        <label>Conditions / Reagents — optional</label>
+        <input id="rxn-conditions" type="text" autocomplete="off"
+               placeholder="e.g.  heat,  concentrated H2SO4,  UV light,  aqueous,  NaOH catalyst">
+      </div>
+      <button class="btn btn-primary" id="rxn-btn" onclick="rxnBtnClick()">Predict Reaction →</button>
+    </div>
+
+    <div id="rxn-output-section" class="card" style="display:none;">
+      <div class="card-title">
+        Reaction Analysis —
+        <span id="rxn-label" style="color:#58a6ff;text-transform:none;font-size:13px;"></span>
+      </div>
+      <div id="rxn-text"></div>
+    </div>
+
+  </section>
+</div><!-- end #section-reaction -->
+
+<!-- ══ HISTORY ════════════════════════════════════════════════════════════════ -->
+<div id="section-history" style="display:none;">
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div class="card-title" style="margin:0;">Research History</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
+        <span style="font-size:12px;color:#8b949e;">Save mode:</span>
+        <div class="mode-toggle">
+          <button class="mode-btn" id="mode-auto"   onclick="setSaveMode('auto')">Auto-save</button>
+          <button class="mode-btn" id="mode-manual" onclick="setSaveMode('manual')">Manual</button>
+        </div>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px;" onclick="clearHistory()">Clear all</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#8b949e;margin-top:10px;line-height:1.6;" id="mode-hint"></p>
+  </div>
+
+  <div id="history-list"></div>
+  <div class="hist-empty" id="history-empty">No history yet. Start analyzing compounds or reactions.</div>
+
+</div><!-- end #section-history -->
+
+<!-- Image expand modal -->
+<div id="img-modal" onclick="closeImgModal()">
+  <img id="img-modal-img" src="" alt="">
+</div>
+
+<!-- Navigation warning modal (manual save mode only) -->
+<div id="nav-warn-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;padding:28px 24px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="font-size:15px;font-weight:600;color:#e6edf3;margin-bottom:10px;">⚠️ Unsaved Analysis</div>
+    <div style="font-size:13px;color:#8b949e;line-height:1.6;margin-bottom:22px;">Your current analysis hasn't been saved to history yet.<br>It will be lost if you continue.</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px;">
+      <button onclick="navWarnNo()"
+        style="padding:8px 18px;font-size:13px;background:transparent;border:1px solid #30363d;border-radius:8px;color:#8b949e;cursor:pointer;">
+        No, keep it
+      </button>
+      <button onclick="navWarnYes()"
+        style="padding:8px 18px;font-size:13px;background:#da3633;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">
+        Yes, discard
+      </button>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#6e7681;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="nav-warn-dontask" style="cursor:pointer;">
+      Don't ask me again
+    </label>
+  </div>
+</div>
+
+<script>
+// ── Content renderer (Markdown + LaTeX chemical equations) ───────────────────
+function renderContent(text) {
+  if (!text) return '';
+
+  // 1. Protect code blocks from LaTeX processing
+  const codeBlocks = [];
+  text = text.replace(/```[\s\S]*?```|`[^`]+`/g, m => {
+    codeBlocks.push(m);
+    return '\x00CODE' + (codeBlocks.length - 1) + '\x00';
+  });
+
+  // 2. Convert LaTeX math to readable HTML
+  // Display math: \[ ... \]
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
+    return '\n\n<div class="display-eq">' + latexToText(eq.trim()) + '</div>\n\n';
+  });
+  // Inline math: \( ... \)
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, (_, eq) => {
+    return '<span class="inline-eq">' + latexToText(eq.trim()) + '</span>';
+  });
+  // Also handle $$ ... $$ and $ ... $
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, eq) => {
+    return '\n\n<div class="display-eq">' + latexToText(eq.trim()) + '</div>\n\n';
+  });
+  text = text.replace(/\$([^\n$]+?)\$/g, (_, eq) => {
+    return '<span class="inline-eq">' + latexToText(eq.trim()) + '</span>';
+  });
+
+  // 3. Render Markdown
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks: true, gfm: true });
+    text = marked.parse(text);
+  } else {
+    // Fallback: basic formatting without marked
+    text = text.replace(/\n/g, '<br>');
+  }
+
+  // 4. Restore code blocks
+  text = text.replace(/\x00CODE(\d+)\x00/g, (_, i) => {
+    const code = codeBlocks[parseInt(i)];
+    return code.startsWith('```')
+      ? '<pre><code>' + code.slice(3, -3).replace(/^[a-z]+\n/, '') + '</code></pre>'
+      : '<code>' + code.slice(1, -1) + '</code>';
+  });
+
+  return '<div class="analysis-rendered">' + text + '</div>';
+}
+
+function latexToText(eq) {
+  return eq
+    // Chemical arrow operators
+    .replace(/\\rightarrow/g, ' → ')
+    .replace(/\\leftarrow/g, ' ← ')
+    .replace(/\\leftrightarrow/g, ' ⇌ ')
+    .replace(/\\longrightarrow/g, ' ⟶ ')
+    .replace(/\\Rightarrow/g, ' ⇒ ')
+    // \text{...} → just the text
+    .replace(/\\text\{([^}]*)\}/g, '$1')
+    .replace(/\\mathrm\{([^}]*)\}/g, '$1')
+    .replace(/\\mathbf\{([^}]*)\}/g, '$1')
+    // Subscripts: _{n} or _n → unicode subscripts
+    .replace(/\_\{([^}]+)\}/g, (_, s) => toSub(s))
+    .replace(/\_([A-Za-z0-9])/g, (_, c) => toSub(c))
+    // Superscripts: ^{n} or ^n → unicode superscripts
+    .replace(/\^\{([^}]+)\}/g, (_, s) => toSup(s))
+    .replace(/\^([A-Za-z0-9+\-])/g, (_, c) => toSup(c))
+    // Common symbols
+    .replace(/\\Delta/g, 'Δ').replace(/\\delta/g, 'δ')
+    .replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β')
+    .replace(/\\gamma/g, 'γ').replace(/\\Gamma/g, 'Γ')
+    .replace(/\\lambda/g, 'λ').replace(/\\mu/g, 'μ')
+    .replace(/\\sigma/g, 'σ').replace(/\\pi/g, 'π')
+    .replace(/\\infty/g, '∞').replace(/\\pm/g, '±')
+    .replace(/\\times/g, '×').replace(/\\cdot/g, '·')
+    .replace(/\\degree/g, '°').replace(/\\circ/g, '°')
+    .replace(/\\geq/g, '≥').replace(/\\leq/g, '≤')
+    .replace(/\\neq/g, '≠')
+    // Remove remaining backslash commands
+    .replace(/\\[a-zA-Z]+/g, '')
+    // Clean up braces
+    .replace(/[{}]/g, '')
+    .trim();
+}
+
+function toSub(s) {
+  const map = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅',
+               '6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋',
+               'n':'ₙ','m':'ₘ','i':'ᵢ','j':'ⱼ','k':'ₖ','x':'ₓ'};
+  return s.split('').map(c => map[c] || c).join('');
+}
+function toSup(s) {
+  const map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵',
+               '6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻',
+               'n':'ⁿ','m':'ᵐ','T':'ᵀ'};
+  return s.split('').map(c => map[c] || c).join('');
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentData       = null;
+let currentIsomers    = "";
+let currentIsomerList = [];
+let acIndex           = -1;
+let acTimeout      = null;
+let activeStream   = null;
+
+// ── On load ───────────────────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  const s = await fetch('/api/status').then(r => r.json()).catch(() => null);
+  if (!s) { document.getElementById('status-bar').textContent = 'Server not reachable'; return; }
+  const libNames = { ollama:'Ollama', pubchem:'PubChem', rdkit:'RDKit',
+                     molmass:'molmass', periodictable:'periodictable' };
+  let html = `<b>${s.model}</b>`;
+  for (const [k, name] of Object.entries(libNames)) {
+    const ok = s.libs[k];
+    html += `<span class="${ok ? 'lib-ok' : 'lib-off'}">${ok ? '✓' : '✗'} ${name}</span>`;
+  }
+  document.getElementById('status-bar').innerHTML = html;
+  // Init history
+  const mode = getSaveMode();
+  document.getElementById('mode-auto').classList.toggle('active', mode === 'auto');
+  document.getElementById('mode-manual').classList.toggle('active', mode === 'manual');
+  updateModeHint(mode);
+  updateHistoryCount();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeImgModal();
+  if (e.key === 'Enter') {
+    if (document.activeElement === document.getElementById('search-input'))
+      startAnalysis();
+    if (document.activeElement === document.getElementById('rxn-r1') ||
+        document.activeElement === document.getElementById('rxn-r2') ||
+        document.activeElement === document.getElementById('rxn-r3') ||
+        document.activeElement === document.getElementById('rxn-conditions'))
+      predictReaction();
+  }
+});
+
+// ── Navigation warning (manual save mode) ────────────────────────────────────
+const NAV_WARN_KEY = 'nav_warn_dismissed';
+let _navWarnCallback = null;
+
+function hasUnsaved() {
+  if (getSaveMode() !== 'manual') return false;
+  return !!document.querySelector('.hist-save-btn:not([disabled])');
+}
+function confirmNav(callback) {
+  if (!hasUnsaved()) { callback(); return; }
+  if (localStorage.getItem(NAV_WARN_KEY) === '1') {
+    document.querySelectorAll('.hist-save-btn').forEach(b => b.remove());
+    callback(); return;
+  }
+  _navWarnCallback = callback;
+  document.getElementById('nav-warn-modal').style.display = 'flex';
+  document.getElementById('nav-warn-dontask').checked = false;
+}
+function navWarnYes() {
+  if (document.getElementById('nav-warn-dontask').checked)
+    localStorage.setItem(NAV_WARN_KEY, '1');
+  document.getElementById('nav-warn-modal').style.display = 'none';
+  // Remove save buttons so callback doesn't re-trigger the warning
+  document.querySelectorAll('.hist-save-btn').forEach(b => b.remove());
+  if (_navWarnCallback) { _navWarnCallback(); _navWarnCallback = null; }
+}
+function navWarnNo() {
+  document.getElementById('nav-warn-modal').style.display = 'none';
+  _navWarnCallback = null;
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  confirmNav(() => {
+    ['analyzer', 'reaction', 'history'].forEach(t => {
+      document.getElementById(`section-${t}`).style.display = t === tab ? '' : 'none';
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+    });
+    cancelStream();
+    if (tab === 'history') renderHistory();
+  });
+}
+
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+const searchInput = document.getElementById('search-input');
+const acList      = document.getElementById('autocomplete-list');
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(acTimeout);
+  acIndex = -1;
+  const q = searchInput.value.trim();
+  if (q.length < 2) { hideAC(); return; }
+  acTimeout = setTimeout(() => fetchAC(q), 280);
+});
+
+searchInput.addEventListener('keydown', e => {
+  const items = acList.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acIndex = Math.min(acIndex + 1, items.length - 1);
+    updateACActive(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acIndex = Math.max(acIndex - 1, -1);
+    updateACActive(items);
+  } else if (e.key === 'Enter' && acIndex >= 0) {
+    e.preventDefault();
+    searchInput.value = items[acIndex].textContent;
+    hideAC();
+  } else if (e.key === 'Escape') {
+    hideAC();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-section')) hideAC();
+});
+
+async function fetchAC(q) {
+  const data = await fetch(`/api/autocomplete?q=${encodeURIComponent(q)}`)
+                      .then(r => r.json()).catch(() => ({ suggestions: [] }));
+  if (!data.suggestions.length) { hideAC(); return; }
+  acList.innerHTML = data.suggestions.map(s =>
+    `<div class="ac-item" onclick="selectAC(this)">${s}</div>`
+  ).join('');
+  acList.style.display = 'block';
+}
+
+function selectAC(el) {
+  searchInput.value = el.textContent;
+  hideAC();
+  startAnalysis();
+}
+
+function updateACActive(items) {
+  items.forEach((el, i) => {
+    el.classList.toggle('active', i === acIndex);
+    if (i === acIndex) searchInput.value = el.textContent;
+  });
+}
+
+function hideAC() { acList.style.display = 'none'; acList.innerHTML = ''; acIndex = -1; }
+
+// ── Search mode (Compound / Crystal) ─────────────────────────────────────────
+let searchMode = 'compound';
+function setSearchMode(mode) {
+  if (mode === searchMode) return;
+  confirmNav(() => _applySearchMode(mode));
+}
+function _applySearchMode(mode) {
+  searchMode = mode;
+  document.getElementById('mode-compound').classList.toggle('active', mode === 'compound');
+  document.getElementById('mode-crystal').classList.toggle('active', mode === 'crystal');
+  document.getElementById('mode-polymer').classList.toggle('active', mode === 'polymer');
+  const labels = {
+    compound: 'Enter a chemical formula or compound name',
+    crystal:  'Enter a crystal or mineral name',
+    polymer:  'Enter a polymer name',
+  };
+  const placeholders = {
+    compound: 'e.g.  H2O,  Fe2O3,  aspirin,  C6H12O6',
+    crystal:  'e.g.  diamond,  NaCl,  quartz,  iron',
+    polymer:  'e.g.  polyethylene,  nylon-6,6,  cellulose,  PVC',
+  };
+  document.getElementById('search-label').textContent       = labels[mode];
+  document.getElementById('search-input').placeholder       = placeholders[mode];
+  resetResults();
+}
+
+// ── Compound Analyzer flow ────────────────────────────────────────────────────
+async function startAnalysis() {
+  const query = searchInput.value.trim();
+  if (!query) return;
+  if (hasUnsaved()) { confirmNav(() => startAnalysis()); return; }
+  hideAC();
+  cancelStream();
+  resetResults();
+  if (searchMode === 'crystal') { startCrystalAnalysis(query); return; }
+  if (searchMode === 'polymer') { startPolymerAnalysis(query);  return; }
+  // Auto-redirect to polymer mode if the query matches a known polymer
+  try {
+    const pcheck = await fetch('/api/polymer', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query})
+    }).then(r => r.json());
+    if (pcheck.found) {
+      _applySearchMode('polymer');
+      startPolymerAnalysis(query);
+      return;
+    }
+  } catch (_) {}
+  // (Crystal mode check is handled above; compound continues below)
+  lockSearch();
+  showLoading('Gathering data from chemistry libraries...');
+
+  const data = await fetch('/api/gather', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  }).then(r => r.json()).catch(e => ({ error: e.message }));
+
+  hideLoading();
+  if (data.error) { showError(data.error); unlockSearch(); return; }
+
+  // If gather_data found a mixture, show mixture card and stream AI
+  if (data.mixture) {
+    showMixtureResults(query, data.mixture);
+    return;
+  }
+
+  // If name search, check whether PubChem returned a mismatched compound
+  // (e.g. "diamond" → methane/carbon nanotube) or no structure at all.
+  // In either case, check Wikipedia to see if it's a crystal and redirect.
+  // Only check crystal if PubChem found no SMILES at all — if we have a SMILES
+  // the compound is molecular, not a crystal (avoids false redirects for synonyms
+  // like adrenaline→epinephrine where name doesn't match but SMILES exists)
+  if (!data.by_formula && !data.smiles) {
+    showLoading('Checking crystal database…');
+    const cryCheck = await fetch('/api/crystal', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ query }),
+    }).then(r => r.json()).catch(() => null);
+    hideLoading();
+    if (cryCheck?.found && cryCheck.is_crystal) {
+      unlockSearch();
+      _applySearchMode('crystal');
+      searchInput.value = query;
+      startCrystalAnalysis(cryCheck.title || query);
+      return;
+    }
+  }
+
+  currentData = data;
+  searchInput.value = data.query;
+  document.getElementById('results-section').style.display = 'block';
+  renderVerifiedData(data, data.organic && data.by_formula && !data.is_structural);
+
+  if (data.organic && data.by_formula && !data.is_structural) {
+    // Generic molecular formula (e.g. C2H6O) — could be many isomers, show picker.
+    document.getElementById('structure-panel').innerHTML =
+      `<div id="no-structure" style="font-size:12px;line-height:1.7;color:#8b949e;text-align:center;padding:24px 12px;">
+        Structure will appear after you pick an isomer below.
+       </div>`;
+    loadIsomersGrid();
+  } else {
+    if (data.img_b64) {
+      document.getElementById('structure-panel').innerHTML =
+        `<img id="structure-img" src="data:image/png;base64,${data.img_b64}" alt="Structure">`;
+    }
+    runAnalysis(data.query, buildVerifiedText(data));
+  }
+}
+
+async function analyzeStructural() {
+  const structural = document.getElementById('structural-input').value.trim();
+  if (!structural) return;
+  const btn = document.getElementById('structural-btn');
+  const msgEl = document.getElementById('structural-msg');
+  const previewEl = document.getElementById('structural-preview');
+  const previewImg = document.getElementById('structural-preview-img');
+  btn.disabled = true; btn.textContent = 'Looking up…';
+  msgEl.style.display = 'none';
+  previewEl.style.display = 'none';
+
+  const result = await fetch('/api/lookup-name', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ query: structural, formula: currentData?.query || '' }),
+  }).then(r => r.json()).catch(() => null);
+
+  btn.disabled = false; btn.textContent = 'Analyze';
+
+  if (!result?.found) {
+    const reason = result?.error ? ` (${escHtml(result.error)})` : '';
+    msgEl.innerHTML = `<span style="color:#f85149;">✗ "${escHtml(structural)}" not found in PubChem${reason}. Check the name or try a SMILES string.</span>`;
+    msgEl.style.display = 'block';
+    return;
+  }
+  if (result.formula && currentData?.query && result.formula !== currentData.query) {
+    msgEl.innerHTML = `<span style="color:#f0883e;">⚠ This is ${escHtml(result.name)} (formula: ${escHtml(result.formula)}), which is not an isomer of ${escHtml(currentData.query)}.</span>`;
+    msgEl.style.display = 'block';
+  } else {
+    msgEl.style.display = 'none';
+  }
+  // Show quick preview next to input
+  if (result.img_b64) {
+    previewImg.src = `data:image/png;base64,${result.img_b64}`;
+    previewEl.style.display = 'block';
+    document.getElementById('structure-panel').innerHTML =
+      `<img id="structure-img" src="data:image/png;base64,${result.img_b64}" alt="Structure">`;
+  }
+
+  if (!result.formula || !currentData?.query || result.formula === currentData.query) {
+    document.getElementById('isomer-grid-section').style.display = 'none';
+
+    // Fetch full PubChem + RDKit data — same flow as selectIsomer
+    const extra = await fetch('/api/gather-isomer', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ cid: result.cid || 0, smiles: result.smiles || '' }),
+    }).then(r => r.json()).catch(() => null);
+
+    if (extra) {
+      currentData.pubchem = extra.pubchem;
+      currentData.rdkit   = extra.rdkit;
+      if (extra.img_b64) {
+        currentData.img_b64 = extra.img_b64;
+        document.getElementById('structure-panel').innerHTML =
+          `<img id="structure-img" src="data:image/png;base64,${extra.img_b64}" alt="Structure">`;
+      }
+      renderVerifiedData(currentData);
+    }
+
+    runAnalysis(result.name || structural, buildVerifiedText(currentData));
+  }
+}
+
+async function loadIsomersGrid() {
+  if (!currentData) return;
+  const sec       = document.getElementById('isomer-grid-section');
+  const gridEl    = document.getElementById('isomer-grid');
+  const loadingEl = document.getElementById('isomer-grid-loading');
+  const manualEl  = document.getElementById('isomer-manual');
+
+  sec.style.display      = 'block';
+  gridEl.innerHTML       = '';
+  loadingEl.style.display = 'block';
+  manualEl.style.display  = 'none';
+  currentIsomerList = [];
+
+  const data = await fetch('/api/isomers/grid', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ formula: currentData.query }),
+  }).then(r => r.json()).catch(e => ({ error: e.message, isomers: [] }));
+
+  loadingEl.style.display = 'none';
+
+  if (!data.isomers?.length) {
+    gridEl.innerHTML = `<div class="alert alert-warn" style="margin:0;">
+      Could not load isomers: ${escHtml(data.error || 'unknown error')}<br>
+      <small style="opacity:.8">Enter the compound name manually below.</small>
+    </div>`;
+    manualEl.style.display = 'block';
+    unlockSearch();
+    return;
+  }
+
+  currentIsomerList = data.isomers;
+  const hint = !data.all_shown
+    ? `<p style="font-size:11px;color:#8b949e;margin-bottom:12px;">Showing first ${data.isomers.length} of many isomers. Use the manual input below if yours isn't shown.</p>`
+    : '';
+  gridEl.innerHTML = hint + data.isomers.map((iso, i) => `
+    <div class="isomer-card" id="isocard-${i}" onclick="selectIsomer(${i})">
+      ${iso.img_b64
+        ? `<img src="data:image/png;base64,${iso.img_b64}" alt="${escHtml(iso.name)}">`
+        : `<div class="isomer-no-img">No image</div>`}
+      <div class="isomer-name">${escHtml(iso.name)}</div>
+    </div>`).join('');
+
+  if (!data.all_shown) manualEl.style.display = 'block';
+  unlockSearch();
+}
+
+async function selectIsomer(idx) {
+  const iso = currentIsomerList[idx];
+  // Close the grid so the user can't click a second isomer and create duplicates
+  document.getElementById('isomer-grid-section').style.display = 'none';
+
+  // Show the thumbnail immediately as a placeholder
+  if (iso.img_b64) {
+    currentData.img_b64 = iso.img_b64;
+    document.getElementById('structure-panel').innerHTML =
+      `<img id="structure-img" src="data:image/png;base64,${iso.img_b64}" alt="Structure">`;
+  }
+
+  // Fetch full PubChem + RDKit data for this specific compound
+  const extra = await fetch('/api/gather-isomer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cid: iso.cid, smiles: iso.smiles }),
+  }).then(r => r.json()).catch(() => null);
+
+  if (extra) {
+    currentData.pubchem  = extra.pubchem;
+    currentData.rdkit    = extra.rdkit;
+    if (extra.img_b64) {
+      currentData.img_b64 = extra.img_b64;   // swap in full-res image
+      document.getElementById('structure-panel').innerHTML =
+        `<img id="structure-img" src="data:image/png;base64,${extra.img_b64}" alt="Structure">`;
+    }
+    renderVerifiedData(currentData);          // show full data now
+  }
+
+  // Run analysis with full context
+  runAnalysis(iso.name, buildVerifiedText(currentData));
+  setTimeout(() => document.getElementById('analysis-section')
+    .scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+// ── Reaction Predictor ────────────────────────────────────────────────────────
+let rxnParts   = [];   // [{raw, inputIdx, resolved}]
+let rxnIsomers = {};   // {partIdx: [{name, img_b64}]}
+let rxnPinned  = {};   // {partIdx: isoIdx} — image stays after click
+let rxnMode    = 'predict'; // 'predict' | 'confirm'
+let rxnCount   = 2;    // number of reactant boxes shown
+
+// True if s is an organic formula in Hill notation (may have multiple isomers).
+// Structural notation (C2H5OH) and plain names are excluded.
+function looksLikeOrganicHillFormula(s) {
+  s = s.trim();
+  if (!s) return false;
+  // Starts with lowercase → it's a name (ethanol, benzene…)
+  if (/^[a-z]/.test(s)) return false;
+  // No carbon (C not followed by a lowercase letter like Ca, Cs)
+  if (!/C(?![a-z])/.test(s)) return false;
+  // Must look like a formula: has a digit OR multiple capitals
+  if (!/\d/.test(s) && (s.match(/[A-Z]/g) || []).length <= 1) return false;
+  // Hill notation: each element symbol appears at most once (C2H6O yes; C2H5OH no)
+  const syms = s.match(/[A-Z][a-z]?/g) || [];
+  return syms.length === new Set(syms).size;
+}
+
+function setReactantCount(n) {
+  rxnCount = n;
+  document.querySelectorAll('#rxn-count-btns .rxn-count-btn').forEach((btn, i) =>
+    btn.classList.toggle('active', i + 1 === n));
+  document.getElementById('rxn-col-1').style.display  = n >= 2 ? '' : 'none';
+  document.getElementById('rxn-plus-1').style.display = n >= 2 ? '' : 'none';
+  document.getElementById('rxn-col-2').style.display  = n >= 3 ? '' : 'none';
+  document.getElementById('rxn-plus-2').style.display = n >= 3 ? '' : 'none';
+  if (n < 2) document.getElementById('rxn-r2').value = '';
+  if (n < 3) document.getElementById('rxn-r3').value = '';
+  // Reset any in-progress prediction
+  [0,1,2].forEach(i => { const e = document.getElementById(`rxn-expand-${i}`); if(e){e.style.display='none';e.innerHTML='';} });
+  rxnParts=[]; rxnIsomers={}; rxnPinned={}; rxnMode='predict';
+  document.getElementById('rxn-output-section').style.display = 'none';
+  document.querySelectorAll('.hist-save-btn').forEach(b => b.remove());
+  unlockRxn();
+}
+
+function rxnBtnClick() {
+  if (rxnMode === 'confirm') confirmReactionPrediction();
+  else predictReaction();
+}
+
+function predictReaction() {
+  const r1 = document.getElementById('rxn-r1').value.trim();
+  const r2 = document.getElementById('rxn-r2').value.trim();
+  const r3 = rxnCount >= 3 ? document.getElementById('rxn-r3').value.trim() : '';
+  const inputs = [{raw: r1, inputIdx: 0}, {raw: r2, inputIdx: 1}, {raw: r3, inputIdx: 2}]
+                   .slice(0, rxnCount).filter(p => p.raw);
+  if (!inputs.length) return;
+  if (hasUnsaved()) { confirmNav(() => predictReaction()); return; }
+  const reactantsRaw = inputs.map(p => p.raw).join(' + ');
+  const conditions   = document.getElementById('rxn-conditions').value.trim();
+
+  lockRxn();
+  document.querySelectorAll('.hist-save-btn').forEach(b => b.remove());
+
+  rxnParts   = [];
+  rxnIsomers = {};
+  rxnPinned  = {};
+  rxnMode    = 'predict';
+
+  [0, 1, 2].forEach(i => {
+    const exp = document.getElementById(`rxn-expand-${i}`);
+    if (exp) { exp.style.display = 'none'; exp.innerHTML = ''; }
+  });
+  document.getElementById('rxn-output-section').style.display = 'none';
+  cancelStream();
+
+  const needsPicker = inputs.some(p => looksLikeOrganicHillFormula(p.raw));
+
+  if (!needsPicker) {
+    runRxnStream(reactantsRaw, conditions);
+    return;
+  }
+
+  rxnParts = inputs.map((p, idx) => ({
+    idx,
+    raw:      p.raw,
+    inputIdx: p.inputIdx,
+    resolved: looksLikeOrganicHillFormula(p.raw) ? null : p.raw,
+  }));
+
+  document.getElementById('rxn-btn').dataset.conditions = conditions;
+  document.getElementById('rxn-btn').textContent = 'Select isomers ↓';
+
+  // Unlock inputs so user can correct a mistake, keep button locked
+  ['rxn-r1', 'rxn-r2', 'rxn-conditions'].forEach(id =>
+    document.getElementById(id).disabled = false);
+
+  rxnParts.forEach((part, idx) => {
+    if (!looksLikeOrganicHillFormula(part.raw)) return;
+    const exp = document.getElementById(`rxn-expand-${part.inputIdx}`);
+    exp.innerHTML = `
+      <p style="font-size:12px;color:#8b949e;margin-bottom:8px;">
+        Which isomer of <strong style="color:#e6edf3;">${escHtml(part.raw)}</strong>?
+      </p>
+      <div id="rxn-grid-loading-${idx}" style="font-size:12px;color:#8b949e;padding:4px 0;">
+        <span class="spinner" style="width:14px;height:14px;border-width:2px;vertical-align:middle;display:inline-block;"></span>
+        Loading…
+      </div>
+      <div class="rxn-iso-wrap">
+        <ul class="rxn-iso-list" id="rxn-iso-list-${idx}"></ul>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+          <div style="text-align:center;">
+            <div class="rxn-preview-box" id="rxn-preview-${idx}">
+              <img id="rxn-preview-img-${idx}" src="" alt="" style="display:none;">
+              <div class="rxn-preview-ph" id="rxn-preview-ph-${idx}">Hover a name<br>to preview</div>
+            </div>
+            <div id="rxn-preview-name-${idx}" style="display:none;margin-top:8px;font-size:13px;color:#e6edf3;"></div>
+            <button id="rxn-reselect-${idx}" onclick="rxnReselect(${idx})"
+                    style="display:none;margin-top:8px;padding:5px 14px;font-size:12px;background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:6px;cursor:pointer;">
+              ↩ Change
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="rxn-manual-${idx}" style="display:none;margin-top:10px;gap:8px;align-items:center;">
+        <input id="rxn-manual-input-${idx}" type="text"
+               style="flex:1;max-width:240px;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;color:#e6edf3;font-size:13px;outline:none;"
+               placeholder="Enter name or SMILES">
+        <button class="btn btn-accent" style="padding:8px 16px;font-size:12px;"
+                onclick="rxnPickManual(${idx})">Use this</button>
+      </div>`;
+    exp.style.display = 'block';
+    fetchRxnIsomers(idx, part.raw);
+  });
+}
+
+async function fetchRxnIsomers(idx, formula) {
+  const data = await fetch('/api/isomers/grid', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ formula }),
+  }).then(r => r.json()).catch(() => ({ isomers: [], error: 'Network error' }));
+
+  document.getElementById(`rxn-grid-loading-${idx}`).style.display = 'none';
+
+  if (!data.isomers?.length) {
+    rxnParts[idx].resolved = formula;
+    document.getElementById(`rxn-iso-list-${idx}`).innerHTML =
+      `<li class="rxn-iso-item" style="cursor:default;color:#8b949e;">No isomers found — using ${escHtml(formula)} as-is.</li>`;
+    checkRxnReady();
+    return;
+  }
+
+  rxnIsomers[idx] = data.isomers;
+  const listEl = document.getElementById(`rxn-iso-list-${idx}`);
+  listEl.innerHTML = data.isomers.map((iso, i) => `
+    <li class="rxn-iso-item" id="rxnitem-${idx}-${i}"
+        onmouseenter="rxnHover(${idx},${i})"
+        onmouseleave="rxnHoverOut(${idx})"
+        onclick="rxnPickIsomer(${idx},${i})">
+      ${escHtml(iso.name)}
+    </li>`).join('');
+
+  if (!data.all_shown) document.getElementById(`rxn-manual-${idx}`).style.display = 'flex';
+}
+
+function rxnPickIsomer(partIdx, isoIdx) {
+  const iso = rxnIsomers[partIdx][isoIdx];
+  rxnPinned[partIdx] = isoIdx;
+  rxnHover(partIdx, isoIdx);
+  rxnParts[partIdx].resolved = iso.name;
+
+  // Hide list and manual input, show selected name label
+  document.getElementById(`rxn-iso-list-${partIdx}`).style.display = 'none';
+  const manualEl = document.getElementById(`rxn-manual-${partIdx}`);
+  if (manualEl) manualEl.style.display = 'none';
+  const nameEl = document.getElementById(`rxn-preview-name-${partIdx}`);
+  if (nameEl) { nameEl.textContent = iso.name; nameEl.style.display = 'block'; }
+  const reselEl = document.getElementById(`rxn-reselect-${partIdx}`);
+  if (reselEl) reselEl.style.display = 'inline-block';
+
+  checkRxnReady();
+}
+
+async function rxnPickManual(partIdx) {
+  const input = document.getElementById(`rxn-manual-input-${partIdx}`);
+  const val   = input.value.trim();
+  if (!val) return;
+  const manualBtn = input.nextElementSibling;
+  manualBtn.disabled = true; manualBtn.textContent = 'Looking up…';
+
+  // Reuse or create a status/preview area below the manual row
+  let statusEl = document.getElementById(`rxn-manual-msg-${partIdx}`);
+  if (!statusEl) {
+    statusEl = document.createElement('div');
+    statusEl.id = `rxn-manual-msg-${partIdx}`;
+    statusEl.style.cssText = 'margin-top:6px;font-size:12px;';
+    document.getElementById(`rxn-manual-${partIdx}`).after(statusEl);
+  }
+  statusEl.innerHTML = '';
+
+  const expectedFormula = rxnParts[partIdx]?.raw || '';
+  const result = await fetch('/api/lookup-name', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ query: val, formula: expectedFormula }),
+  }).then(r => r.json()).catch(() => null);
+
+  manualBtn.disabled = false; manualBtn.textContent = 'Use this';
+
+  if (!result?.found) {
+    const reason = result?.error ? ` (${escHtml(result.error)})` : '';
+    statusEl.innerHTML = `<span style="color:#f85149;">✗ "${escHtml(val)}" not found in PubChem${reason}. Check the name or try a SMILES string.</span>`;
+    return;
+  }
+  if (result.formula && expectedFormula && result.formula !== expectedFormula) {
+    statusEl.innerHTML = `<span style="color:#f0883e;">⚠ ${escHtml(result.name)} has formula ${escHtml(result.formula)}, not an isomer of ${escHtml(expectedFormula)}. Try a different name.</span>`;
+    return;
+  }
+
+  // Show image in the preview box
+  if (result.img_b64) {
+    const img = document.getElementById(`rxn-preview-img-${partIdx}`);
+    const ph  = document.getElementById(`rxn-preview-ph-${partIdx}`);
+    if (img) { img.src = `data:image/png;base64,${result.img_b64}`; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+  }
+  // Show name label and hide list
+  const nameEl = document.getElementById(`rxn-preview-name-${partIdx}`);
+  if (nameEl) { nameEl.textContent = result.name || val; nameEl.style.display = 'block'; }
+  const reselEl = document.getElementById(`rxn-reselect-${partIdx}`);
+  if (reselEl) reselEl.style.display = 'inline-block';
+  document.getElementById(`rxn-iso-list-${partIdx}`).style.display = 'none';
+  document.getElementById(`rxn-manual-${partIdx}`).style.display = 'none';
+  rxnPinned[partIdx] = -1; // pinned via manual (no isoIdx)
+
+  document.querySelectorAll(`[id^="rxnitem-${partIdx}-"]`).forEach(el =>
+    el.classList.remove('selected'));
+  rxnParts[partIdx].resolved = result.name || val;
+  checkRxnReady();
+}
+
+function rxnReselect(partIdx) {
+  rxnPinned[partIdx] = null;
+  rxnParts[partIdx].resolved = null;
+  document.getElementById(`rxn-iso-list-${partIdx}`).style.display = '';
+  const manualEl = document.getElementById(`rxn-manual-${partIdx}`);
+  if (manualEl) manualEl.style.display = 'flex';
+  const nameEl = document.getElementById(`rxn-preview-name-${partIdx}`);
+  if (nameEl) nameEl.style.display = 'none';
+  const reselEl = document.getElementById(`rxn-reselect-${partIdx}`);
+  if (reselEl) reselEl.style.display = 'none';
+  rxnHoverOut(partIdx);
+  document.querySelectorAll(`[id^="rxnitem-${partIdx}-"]`).forEach(el =>
+    el.classList.remove('selected'));
+  // Not all resolved anymore — lock button again
+  rxnMode = 'predict';
+  const btn = document.getElementById('rxn-btn');
+  btn.disabled = true;
+  btn.textContent = 'Select isomers ↓';
+}
+
+function rxnHover(partIdx, isoIdx) {
+  const iso = rxnIsomers[partIdx]?.[isoIdx];
+  if (!iso?.img_b64) return;
+  const img = document.getElementById(`rxn-preview-img-${partIdx}`);
+  const ph  = document.getElementById(`rxn-preview-ph-${partIdx}`);
+  img.src = `data:image/png;base64,${iso.img_b64}`;
+  img.style.display = 'block';
+  if (ph) ph.style.display = 'none';
+}
+
+function rxnHoverOut(partIdx) {
+  if (rxnPinned[partIdx] != null) {
+    // A selection was made — restore pinned image instead of clearing
+    rxnHover(partIdx, rxnPinned[partIdx]);
+    return;
+  }
+  const img = document.getElementById(`rxn-preview-img-${partIdx}`);
+  const ph  = document.getElementById(`rxn-preview-ph-${partIdx}`);
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (ph) ph.style.display = '';
+}
+
+function checkRxnReady() {
+  const allDone = rxnParts.length > 0 && rxnParts.every(p => p.resolved !== null);
+  if (allDone) {
+    rxnMode = 'confirm';
+    const btn = document.getElementById('rxn-btn');
+    btn.disabled = false;
+    btn.textContent = 'Confirm & Predict →';
+  }
+}
+
+function confirmReactionPrediction() {
+  const resolved   = rxnParts.map(p => p.resolved).join(' + ');
+  const conditions = document.getElementById('rxn-btn').dataset.conditions || '';
+  [0, 1].forEach(i => {
+    const exp = document.getElementById(`rxn-expand-${i}`);
+    exp.style.display = 'none';
+  });
+  rxnMode = 'predict';
+  runRxnStream(resolved, conditions);
+}
+
+function runRxnStream(reactants, conditions) {
+  cancelStream();
+  lockRxn();
+  document.querySelectorAll('.hist-save-btn').forEach(b => b.remove());
+  const capturedVerified = rxnParts.map(p => p.resolved || p.raw).join(' + ');
+  const outputSec = document.getElementById('rxn-output-section');
+  const label     = document.getElementById('rxn-label');
+  const textEl    = document.getElementById('rxn-text');
+
+  const title = conditions ? `${reactants}  (${conditions})` : reactants;
+  outputSec.style.display = 'block';
+  label.textContent = title;
+  textEl.innerHTML  = '<span class="cursor"></span>';
+
+  let content = '';
+  streamTo(
+    '/api/stream/reaction',
+    { reactants, conditions },
+    (chunk) => { content += chunk; textEl.textContent = content; },
+    () => {
+      textEl.innerHTML = renderContent(content);
+      unlockRxn();
+      maybeSave({ type:'reaction', title, imgB64: '', analysisText: content },
+                document.getElementById('rxn-output-section'));
+    }
+  );
+}
+
+// ── Streaming helpers ─────────────────────────────────────────────────────────
+function cancelStream() {
+  if (activeStream) { activeStream.abort(); activeStream = null; }
+}
+
+async function streamTo(url, body, onChunk, onDone) {
+  cancelStream();
+  const controller = new AbortController();
+  activeStream = controller;
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') { onDone(); return; }
+        try {
+          const obj = JSON.parse(raw);
+          if (obj.text)  onChunk(obj.text);
+          if (obj.error) { showStreamError(obj.error); return; }
+        } catch {}
+      }
+    }
+    onDone();
+  } catch (e) {
+    if (e.name !== 'AbortError') showStreamError(e.message);
+  } finally {
+    activeStream = null;
+  }
+}
+
+function showStreamError(msg) {
+  unlockSearch();
+  unlockRxn();
+  // Show a red alert in whichever output area is currently visible
+  const targets = ['analysis-text', 'rxn-text'];
+  for (const id of targets) {
+    const el = document.getElementById(id);
+    if (el && el.closest('[style*="block"], section:not([style*="none"])')) {
+      el.innerHTML = `<div class="alert alert-warn" style="margin:0;">
+        Ollama error — ${escHtml(msg)}<br>
+        <small style="opacity:.8">Make sure Ollama is running: run <code>ollama serve</code> in a terminal</small>
+      </div>`;
+      return;
+    }
+  }
+  // Fallback: alert
+  alert('Ollama error: ' + msg);
+}
+
+let _lastAnalyzedCompound = '';
+
+function runAnalysis(compound, verifiedText) {
+  const capturedImg = currentData?.img_b64 || '';   // snapshot now, before stream
+  const sec    = document.getElementById('analysis-section');
+  const label  = document.getElementById('analysis-label');
+  const textEl = document.getElementById('analysis-text');
+  sec.style.display = 'block';
+  label.textContent = compound;
+  textEl.innerHTML  = '<span class="cursor"></span>';
+  _lastAnalyzedCompound = compound;
+  document.getElementById('rxn-suggest-banner').style.display = 'none';
+  lockSearch();
+  let content = '';
+
+  streamTo(
+    '/api/stream/analyze',
+    { compound, verified_text: verifiedText },
+    (chunk) => { content += chunk; textEl.textContent = content; },
+    () => {
+      textEl.innerHTML = renderContent(content);
+      unlockSearch();
+      maybeSave({ type:'compound', title: compound,
+                  imgB64: capturedImg,
+                  verifiedText, analysisText: content },
+                document.getElementById('analysis-section'));
+      document.getElementById('rxn-suggest-name').textContent = compound;
+      document.getElementById('rxn-suggest-banner').style.display = '';
+    }
+  );
+}
+
+function goToReaction() {
+  switchTab('reaction');
+  const input = document.getElementById('rxn-r1');
+  input.value = _lastAnalyzedCompound;
+  input.focus();
+}
+
+
+// ── Verified data renderer ────────────────────────────────────────────────────
+// formulaOnly=true: only include molmass + elements (accurate for any isomer of the formula).
+// Skip PubChem/RDKit because they reflect PubChem's first-match compound, not the chosen isomer.
+function buildVerifiedText(data, formulaOnly = false) {
+  const lines = [];
+  const mm = data.molmass;
+  if (mm && !mm.error) {
+    const mmRows = [];
+    if (mm.molecular_weight)  mmRows.push(`  Molecular weight  : ${mm.molecular_weight}`);
+    if (mm.monoisotopic_mass) mmRows.push(`  Monoisotopic mass : ${mm.monoisotopic_mass}`);
+    if (mm.composition)       mmRows.push(`  Composition       : ${mm.composition}`);
+    if (mmRows.length) { lines.push('[molmass]'); lines.push(...mmRows); }
+  }
+  if (data.elements?.length) {
+    lines.push('[periodictable]');
+    data.elements.forEach(e => lines.push(`  ${e.name} (${e.symbol}): Z=${e.number}, mass=${e.mass} u`));
+  }
+  if (!formulaOnly) {
+    const pc = data.pubchem;
+    if (pc?.found) {
+      lines.push('[PubChem]');
+      const map = { cid:'CID', iupac_name:'IUPAC name', common_name:'Common name',
+                    formula:'Formula', smiles:'SMILES', mw:'Molecular weight',
+                    logp:'XLogP', tpsa:'TPSA', hbd:'H-bond donors', hba:'H-bond acceptors' };
+      for (const [k, lbl] of Object.entries(map)) {
+        if (pc[k] != null) lines.push(`  ${lbl}: ${pc[k]}`);
+      }
+    }
+    const rd = data.rdkit;
+    if (rd && Object.keys(rd).length) {
+      lines.push('[RDKit]');
+      const map = { exact_mw:'Exact MW', logp:'LogP', tpsa:'TPSA',
+                    h_bond_donors:'H-bond donors', h_bond_acceptors:'H-bond acceptors',
+                    rotatable_bonds:'Rotatable bonds', rings:'Total rings', aromatic_rings:'Aromatic rings' };
+      for (const [k, lbl] of Object.entries(map)) {
+        if (rd[k] != null) lines.push(`  ${lbl}: ${rd[k]}`);
+      }
+    }
+  }
+  return lines.join('\n');
+}
+
+// formulaOnly=true: only show molmass + elements; skip PubChem/RDKit (which
+// belong to PubChem's first-match compound, not the formula in general).
+function renderVerifiedData(data, formulaOnly = false) {
+  const el = document.getElementById('data-content');
+  let html = '';
+
+  const mm = data.molmass;
+  if (mm && !mm.error) {
+    html += source('molmass');
+    if (mm.molecular_weight)  html += row('Molecular weight',  mm.molecular_weight);
+    if (mm.monoisotopic_mass) html += row('Monoisotopic mass', mm.monoisotopic_mass);
+    if (mm.composition)       html += row('Composition',       mm.composition);
+    html += '</div>';
+  }
+  if (data.elements?.length) {
+    html += source('periodictable');
+    data.elements.forEach(e => html += row(`${e.name} (${e.symbol})`, `Z=${e.number}, ${e.mass} u`));
+    html += '</div>';
+  }
+  if (!formulaOnly) {
+    const pc = data.pubchem;
+    if (pc?.found) {
+      html += source('PubChem');
+      const fields = [
+        ['CID', pc.cid], ['IUPAC name', pc.iupac_name], ['Common name', pc.common_name],
+        ['Formula', pc.formula], ['Molecular weight', pc.mw],
+        ['XLogP', pc.logp], ['TPSA', pc.tpsa],
+        ['H-bond donors', pc.hbd], ['H-bond acceptors', pc.hba],
+      ];
+      fields.forEach(([k, v]) => { if (v != null) html += row(k, v); });
+      html += '</div>';
+    } else if (pc && !pc.found && !pc.error) {
+      html += `<div class="alert alert-warn">PubChem: no match found</div>`;
+    }
+    const rd = data.rdkit;
+    if (rd && Object.keys(rd).length) {
+      html += source('RDKit');
+      const fields = [
+        ['Exact MW', rd.exact_mw], ['LogP', rd.logp], ['TPSA', rd.tpsa],
+        ['H-bond donors', rd.h_bond_donors], ['H-bond acceptors', rd.h_bond_acceptors],
+        ['Rotatable bonds', rd.rotatable_bonds], ['Total rings', rd.rings],
+        ['Aromatic rings', rd.aromatic_rings],
+      ];
+      fields.forEach(([k, v]) => { if (v != null) html += row(k, v); });
+      html += '</div>';
+    }
+  }
+  el.innerHTML = html || '<span style="color:#8b949e;font-size:13px;">No data available</span>';
+}
+
+function source(name) {
+  return `<div class="data-group"><div class="data-source">${name}</div>`;
+}
+function row(key, val) {
+  return `<div class="data-row"><span class="data-key">${key}</span><span class="data-val">${val}</span></div>`;
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+const HIST_KEY      = 'chem_history';
+const HIST_MODE_KEY = 'chem_save_mode';
+const HIST_MAX      = 60;
+
+function getSaveMode()   { return localStorage.getItem(HIST_MODE_KEY) || 'auto'; }
+
+function setSaveMode(mode) {
+  localStorage.setItem(HIST_MODE_KEY, mode);
+  document.getElementById('mode-auto').classList.toggle('active', mode === 'auto');
+  document.getElementById('mode-manual').classList.toggle('active', mode === 'manual');
+  updateModeHint(mode);
+}
+
+function updateModeHint(mode) {
+  document.getElementById('mode-hint').textContent = mode === 'auto'
+    ? 'Every completed analysis is saved automatically.'
+    : 'A "Save to History" button appears after each analysis — you choose what to keep.';
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; }
+}
+
+function addHistoryItem(item) {
+  const items = getHistory();
+  items.unshift(item);
+  if (items.length > HIST_MAX) items.splice(HIST_MAX);
+  localStorage.setItem(HIST_KEY, JSON.stringify(items));
+  updateHistoryCount();
+}
+
+function updateHistoryCount() {
+  const n = getHistory().length;
+  const el = document.getElementById('history-count');
+  el.textContent = n;
+  el.style.display = n ? '' : 'none';
+}
+
+// item = { type, title, imgB64, analysisText }
+// sectionEl = the card element to append save button to (manual mode only)
+function maybeSave(item, sectionEl) {
+  const snapshot = Object.assign({}, item, {
+    id:        Date.now(),
+    timestamp: new Date().toLocaleString(),
+  });
+  if (getSaveMode() === 'auto') {
+    addHistoryItem(snapshot);
+  } else {
+    const old = sectionEl.querySelector('.hist-save-btn');
+    if (old) old.remove();
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-secondary hist-save-btn';
+    btn.style.cssText = 'margin-top:14px;font-size:12px;padding:7px 16px;';
+    btn.textContent = '💾 Save to History';
+    btn.onclick = () => {
+      addHistoryItem(snapshot);
+      btn.textContent = '✓ Saved';
+      btn.disabled = true;
+    };
+    sectionEl.appendChild(btn);
+  }
+}
+
+function renderHistory() {
+  const items   = getHistory();
+  const listEl  = document.getElementById('history-list');
+  const emptyEl = document.getElementById('history-empty');
+  if (!items.length) { listEl.innerHTML = ''; emptyEl.style.display = ''; return; }
+  emptyEl.style.display = 'none';
+  listEl.innerHTML = items.map(item => {
+    const badge = item.type === 'compound' ? '⚗️ Compound'
+                : item.type === 'crystal'  ? '💎 Crystal'
+                : item.type === 'polymer'  ? '🧬 Polymer'
+                : item.type === 'mixture'  ? '🧪 Mixture'
+                : '🔬 Reaction';
+    // Strip [library] headers — keep only the key: value lines
+    const cleanVerified = item.verifiedText
+      ? item.verifiedText.replace(/^\[.*?\]\s*$/gm, '').replace(/\n{2,}/g, '\n').trim()
+      : '';
+    const verifiedHtml = cleanVerified
+      ? `<div style="font-size:11px;color:#388bfd;font-weight:600;text-transform:uppercase;margin-bottom:6px;">Verified Data</div>
+         <pre style="font-family:'Courier New',monospace;font-size:11px;color:#8b949e;background:#161b22;border-radius:6px;padding:10px;margin-bottom:12px;white-space:pre-wrap;border:1px solid #30363d;overflow-x:auto;">${escHtml(cleanVerified)}</pre>`
+      : '';
+    const analysisHtml = item.analysisText
+      ? `<div style="font-size:11px;color:#388bfd;font-weight:600;text-transform:uppercase;margin-bottom:6px;">AI Analysis</div>
+         <div class="hist-analysis" style="font-family:inherit;white-space:normal;">${renderContent(item.analysisText)}</div>`
+      : '';
+    const imgMime = item.imgMime || 'image/png';
+    const imgHtml = item.imgB64
+      ? `<img style="width:180px;height:130px;object-fit:contain;background:white;border-radius:6px;flex-shrink:0;cursor:zoom-in;"
+             src="data:${imgMime};base64,${item.imgB64}"
+             onclick="openImgModal(this.src)" title="Click to expand" alt="">`
+      : '';
+    return `
+      <div class="hist-item">
+        <div class="hist-header" onclick="toggleHistItem(${item.id})">
+          <span class="hist-badge ${item.type}">${badge}</span>
+          <span class="hist-query">${escHtml(item.title)}</span>
+          <span class="hist-time">${item.timestamp}</span>
+          <button class="hist-del" onclick="deleteHistItem(${item.id},event)" title="Delete">✕</button>
+        </div>
+        <div class="hist-body" id="hb-${item.id}">
+          <div style="display:flex;gap:16px;align-items:flex-start;">
+            <div style="flex:1;min-width:0;">${verifiedHtml}${analysisHtml}</div>
+            ${imgHtml ? `<div style="flex-shrink:0;padding-top:4px;">${imgHtml}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleHistItem(id) {
+  document.getElementById(`hb-${id}`)?.classList.toggle('open');
+}
+
+function deleteHistItem(id, e) {
+  e.stopPropagation();
+  const items = getHistory().filter(i => i.id !== id);
+  localStorage.setItem(HIST_KEY, JSON.stringify(items));
+  updateHistoryCount();
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('Delete all history?')) return;
+  localStorage.removeItem(HIST_KEY);
+  updateHistoryCount();
+  renderHistory();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openImgModal(src) {
+  document.getElementById('img-modal-img').src = src;
+  document.getElementById('img-modal').classList.add('open');
+}
+function closeImgModal() {
+  document.getElementById('img-modal').classList.remove('open');
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function lockSearch() {
+  searchInput.disabled = true;
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  ['mode-compound','mode-crystal','mode-polymer'].forEach(id =>
+    document.getElementById(id).disabled = true);
+}
+function unlockSearch() {
+  searchInput.disabled = false;
+  const btn = document.getElementById('search-btn');
+  btn.disabled = false;
+  btn.textContent = 'Analyze →';
+  ['mode-compound','mode-crystal','mode-polymer'].forEach(id =>
+    document.getElementById(id).disabled = false);
+}
+function lockRxn() {
+  ['rxn-r1','rxn-r2','rxn-r3','rxn-conditions'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
+  document.querySelectorAll('.rxn-count-btn').forEach(b => b.disabled = true);
+  const btn = document.getElementById('rxn-btn');
+  btn.disabled = true;
+  btn.textContent = 'Predicting…';
+}
+function unlockRxn() {
+  ['rxn-r1','rxn-r2','rxn-r3','rxn-conditions'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+  document.querySelectorAll('.rxn-count-btn').forEach(b => b.disabled = false);
+  const btn = document.getElementById('rxn-btn');
+  btn.disabled = false;
+  btn.textContent = 'Predict Reaction →';
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading').style.display = 'block';
+}
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+function showError(msg) {
+  document.getElementById('results-section').style.display = 'block';
+  document.getElementById('data-content').innerHTML =
+    `<div class="alert alert-warn">${msg}</div>`;
+}
+function resetResults() {
+  unlockSearch();
+  document.querySelectorAll('.hist-save-btn').forEach(b => b.remove());
+  currentData       = null;
+  currentIsomers    = '';
+  currentIsomerList = [];
+  document.getElementById('results-section').style.display       = 'none';
+  document.getElementById('polymer-section').style.display       = 'none';
+  document.getElementById('isomer-grid-section').style.display   = 'none';
+  document.getElementById('analysis-section').style.display      = 'none';
+  document.getElementById('mixture-section').style.display       = 'none';
+  document.getElementById('rxn-suggest-banner').style.display    = 'none';
+  document.getElementById('crystal-section').style.display       = 'none';
+  document.getElementById('crystal-sym-row').style.display       = 'none';
+  document.getElementById('lattice-diagram-wrap').style.display  = 'none';
+  document.getElementById('polymer-main-section').style.display  = 'none';
+  document.getElementById('crystal-analysis-section').style.display = 'none';
+  document.getElementById('isomer-grid').innerHTML               = '';
+  document.getElementById('structural-input').value              = '';
+  document.getElementById('data-content').innerHTML              = '';
+  document.getElementById('analysis-text').textContent           = '';
+  document.getElementById('structure-panel').innerHTML =
+    '<div id="no-structure">No structure available</div>';
+}
+
+// ── Crystal mode flow ─────────────────────────────────────────────────────────
+async function startCrystalAnalysis(query) {
+  // Auto-redirect to polymer mode if the query is a known polymer
+  try {
+    const pcheck = await fetch('/api/polymer', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query})
+    }).then(r => r.json());
+    if (pcheck.found) {
+      _applySearchMode('polymer');
+      startPolymerAnalysis(query);
+      return;
+    }
+  } catch (_) {}
+  lockSearch();
+  showLoading('Fetching crystal structure from Wikipedia...');
+  const data = await fetch('/api/crystal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  }).then(r => r.json()).catch(e => ({ found: false, error: e.message }));
+  hideLoading();
+
+  const sec = document.getElementById('crystal-section');
+  sec.style.display = '';
+  document.getElementById('crystal-label').textContent = data.title || query;
+
+  if (!data.found || !data.is_crystal) {
+    document.getElementById('crystal-section').style.display = 'none';
+    _applySearchMode('compound');
+    startAnalysis(query);
+    return;
+  }
+
+  document.getElementById('crystal-not-crystal').style.display = 'none';
+  document.getElementById('crystal-body').style.display = 'block';
+
+  const imgEl   = document.getElementById('crystal-img');
+  const noImg   = document.getElementById('crystal-no-img');
+  const noteEl  = document.getElementById('crystal-structure-note');
+  if (data.structure_note) {
+    noteEl.textContent = '⚠ ' + data.structure_note;
+    noteEl.style.display = 'block';
+  } else {
+    noteEl.style.display = 'none';
+  }
+  // Only show the main crystal image when there is no unit cell diagram
+  if (data.img_b64 && !data.lattice_diagram) {
+    imgEl.src = `data:${data.img_mime || 'image/png'};base64,` + data.img_b64;
+    imgEl.style.display = 'block';
+    noImg.style.display = 'none';
+  } else {
+    imgEl.style.display = 'none';
+    noImg.style.display = 'none';
+  }
+
+  // Symmetry info chips
+  const symRow = document.getElementById('crystal-sym-row');
+  symRow.innerHTML = '';
+  if (data.crystal_system || data.bravais || data.spacegroup_sym) {
+    symRow.style.display = 'flex';
+    if (data.crystal_system)
+      symRow.innerHTML += `<span class="crystal-chip system">🔷 ${data.crystal_system}</span>`;
+    if (data.bravais)
+      symRow.innerHTML += `<span class="crystal-chip bravais">⬡ ${data.bravais}</span>`;
+    if (data.spacegroup_sym && data.spacegroup_num)
+      symRow.innerHTML += `<span class="crystal-chip sg">Space group: ${data.spacegroup_sym} (#${data.spacegroup_num})</span>`;
+  } else {
+    symRow.style.display = 'none';
+  }
+
+  // Unit cell diagram
+  const latticWrap = document.getElementById('lattice-diagram-wrap');
+  const latticImg  = document.getElementById('lattice-diagram-img');
+  if (data.lattice_diagram) {
+    latticImg.src = 'data:image/png;base64,' + data.lattice_diagram;
+    latticWrap.style.display = 'block';
+  } else {
+    latticWrap.style.display = 'none';
+  }
+
+  // Start AI analysis immediately (don't wait for 3D)
+  const analysisSec = document.getElementById('crystal-analysis-section');
+  const analysisLbl = document.getElementById('crystal-analysis-label');
+  const analysisEl  = document.getElementById('crystal-analysis-text');
+  analysisSec.style.display = 'block';
+  analysisLbl.textContent = data.title || query;
+  analysisEl.innerHTML = '<span class="cursor"></span>';
+  const capturedImg = data.img_b64 || '';
+  let content = '';
+  streamTo(
+    '/api/stream/analyze',
+    { compound: data.title || query, is_crystal: true,
+      verified_text: [
+        data.crystal_system  ? `Crystal system: ${data.crystal_system}`   : '',
+        data.bravais         ? `Bravais lattice: ${data.bravais}`          : '',
+        data.spacegroup_sym  ? `Space group: ${data.spacegroup_sym} (#${data.spacegroup_num})` : '',
+      ].filter(Boolean).join('\n') },
+    (chunk) => { content += chunk; analysisEl.textContent = content; },
+    () => {
+      analysisEl.innerHTML = renderContent(content);
+      unlockSearch();
+      maybeSave(
+        { type: 'crystal', title: data.title || query, imgB64: capturedImg,
+          imgMime: data.img_mime || 'image/png', analysisText: content },
+        analysisSec
+      );
+    }
+  );
+
+}
+
+// ── Mixture flow (within compound mode) ───────────────────────────────────────
+function showMixtureResults(query, mix) {
+  lockSearch();
+  document.getElementById('results-section').style.display = 'block';
+  // Populate mixture card
+  document.getElementById('mixture-title').textContent   = mix.full_name || query;
+  document.getElementById('mixture-type').textContent    = mix.type || '';
+  document.getElementById('mixture-desc').textContent    = mix.description || '';
+  document.getElementById('mixture-ratio').textContent   = mix.ratio ? '⚖ Ratio: ' + mix.ratio : '';
+
+  // Build components table
+  const tbl = document.getElementById('mixture-table');
+  tbl.innerHTML = (mix.components || []).map(([name, formula, amount]) => `
+    <tr style="border-bottom:1px solid #21262d;">
+      <td style="padding:7px 10px 7px 0;color:#e6edf3;font-weight:500;">${name}</td>
+      <td style="padding:7px 10px;font-family:'Courier New',monospace;color:#79c0ff;font-size:12px;">${formula}</td>
+      <td style="padding:7px 0 7px 10px;color:#8b949e;font-size:12px;">${amount}</td>
+    </tr>`).join('');
+
+  document.getElementById('mixture-section').style.display = 'block';
+
+  // Show AI analysis section
+  const sec  = document.getElementById('analysis-section');
+  const lbl  = document.getElementById('analysis-label');
+  const textEl = document.getElementById('analysis-text');
+  sec.style.display = 'block';
+  lbl.textContent   = mix.full_name || query;
+  textEl.innerHTML  = '<span class="cursor"></span>';
+
+  let content = '';
+  streamTo(
+    '/api/stream/analyze',
+    { compound: mix.full_name || query, verified_text: '', is_mixture: true },
+    (chunk) => { content += chunk; textEl.textContent = content; },
+    () => {
+      textEl.innerHTML = renderContent(content);
+      unlockSearch();
+      maybeSave({ type: 'mixture', title: mix.full_name || query,
+                  imgB64: '', analysisText: content },
+                sec);
+    }
+  );
+}
+
+// ── Polymer mode flow ──────────────────────────────────────────────────────────
+async function startPolymerAnalysis(query) {
+  lockSearch();
+  showLoading('Looking up polymer structure…');
+  const data = await fetch('/api/polymer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  }).then(r => r.json()).catch(e => ({ found: false, error: e.message }));
+  hideLoading();
+
+  const sec = document.getElementById('polymer-main-section');
+  sec.style.display = '';
+  document.getElementById('polymer-main-label').textContent = query;
+
+  if (!data.found) {
+    document.getElementById('polymer-main-section').style.display = 'none';
+    _applySearchMode('compound');
+    startAnalysis(query);
+    return;
+  }
+
+  document.getElementById('polymer-not-found').style.display = 'none';
+  document.getElementById('polymer-main-body').style.display = 'flex';
+  document.getElementById('polymer-main-notation').textContent = data.notation || '';
+  document.getElementById('polymer-main-formula').textContent  = data.formula  || '';
+
+  const imgEl = document.getElementById('polymer-main-img');
+  if (data.img_b64) {
+    imgEl.src = 'data:image/png;base64,' + data.img_b64;
+    imgEl.style.display = 'block';
+  } else {
+    imgEl.style.display = 'none';
+  }
+
+  const analysisSec = document.getElementById('polymer-analysis-section');
+  const analysisLbl = document.getElementById('polymer-analysis-label');
+  const analysisEl  = document.getElementById('polymer-analysis-text');
+  analysisSec.style.display = 'block';
+  analysisLbl.textContent = query;
+  analysisEl.innerHTML = '<span class="cursor"></span>';
+  const capturedImg = data.img_b64 || '';
+  let content = '';
+  streamTo(
+    '/api/stream/analyze',
+    { compound: query, verified_text: '', is_polymer: true },
+    (chunk) => { content += chunk; analysisEl.textContent = content; },
+    () => {
+      analysisEl.innerHTML = renderContent(content);
+      unlockSearch();
+      maybeSave(
+        { type: 'polymer', title: query, imgB64: capturedImg,
+          imgMime: 'image/png', analysisText: content },
+        analysisSec
+      );
+    }
+  );
+}
+</script>
+</body>
+</html>
