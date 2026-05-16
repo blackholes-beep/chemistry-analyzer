@@ -1246,6 +1246,14 @@ _MP_SPACEGROUP_HINTS = {
     "sb2s3":  62,  # stibnite
     "as2s3":  15,  # orpiment
     "cufes2": 122, # chalcopyrite
+    # CsCl-type (B2) compounds — sg 221 (Pm-3m), primitive cubic with 2 species
+    "cscl":  221,  # cesium chloride
+    "tlcl":  221,  # thallium(I) chloride
+    "tlbr":  221,  # thallium(I) bromide
+    "tli":   221,  # thallium iodide (high-temp)
+    "nh4cl": 221,  # ammonium chloride (above 184°C)
+    "cesium chloride": 221,
+    "thallium chloride": 221,
 }
 
 # Mineral varieties → (parent formula, spacegroup hint or None)
@@ -1407,12 +1415,22 @@ _ROCK_SALT_COMPOUNDS = {
     "pbs", "lead sulfide", "galena",
 }
 
+# CsCl-type (B2) compounds — sg 221, primitive cubic: A at corners, B at body center
+_CSCL_TYPE_COMPOUNDS = {
+    "cscl", "cesium chloride",
+    "tlcl", "thallium chloride",
+    "tlbr",
+    "nh4cl", "ammonium chloride",
+}
+
 def _gen_lattice_diagram_sync(bravais_key: str, hint: str = "") -> str:
     """Generate a ball-and-stick unit cell diagram (base64 PNG). Cached."""
-    # Override bravais for rock salt compounds
+    # Override bravais for rock salt and CsCl-type compounds
     if hint in _ROCK_SALT_COMPOUNDS or bravais_key.lower() == "rock salt (fcc)":
         bravais_key = "Rock salt (FCC)"
-    cache_key = bravais_key.lower() + (f"|{hint}" if hint in _ROCK_SALT_COMPOUNDS else "")
+    elif hint in _CSCL_TYPE_COMPOUNDS or bravais_key.lower() == "cscl-type (sc)":
+        bravais_key = "CsCl-type (SC)"
+    cache_key = bravais_key.lower() + (f"|{hint}" if hint in (_ROCK_SALT_COMPOUNDS | _CSCL_TYPE_COMPOUNDS) else "")
     if cache_key in _LATTICE_DIAGRAM_CACHE:
         return _LATTICE_DIAGRAM_CACHE[cache_key]
     result = ""
@@ -1586,6 +1604,17 @@ def _gen_lattice_diagram_sync(bravais_key: str, hint: str = "") -> str:
                         if abs(dist2 - 0.25) < 0.01:   # distance = 0.5
                             bonds.append((cp, np_))
                 lbl = 'Rock salt (NaCl-type)'
+
+            elif 'cscl-type' in bk:
+                # Cs at all 8 corners, Cl at body center — B2 structure
+                C_CS = (68,  119, 187)   # blue for Cs (or cation)
+                C_CL2 = (55, 170,  80)   # green for Cl (or anion)
+                ctr = (0.5, 0.5, 0.5)
+                atoms = [(d(*pt), pt, C_CS,  14) for pt in corners]
+                atoms.append((d(*ctr), ctr, C_CL2, 18))
+                # bonds: body-center → all 8 corners
+                bonds = [(ctr, c) for c in corners]
+                lbl = 'CsCl-type (B2)'
 
             else:
                 # No proper diagram for this structure type —
